@@ -1,25 +1,39 @@
 import Zad2 as Z
+import matplotlib.pyplot as plt
 
+items = Z.buildItems(8)
+actualBackpackPopulation = Z.BuildBackbackPopulation(6, 8)
+# Uruchomienie algorytmu genetycznego
+def run_genetic_algorithm(penalty_func, items=items, population=actualBackpackPopulation):
+    #definicja zmiennych
+    best_in_population = [0, 0, 0, 0, 0]
+    maxLoad = 25
+    #generacja populacji
+    actualBackpackPopulation = population
+    best_in_population = Z.GetBestBackpack(actualBackpackPopulation, items, best_in_population, maxLoad)
+    best_values_per_generation = []
+    #iteracja po generacjach
+    for i in range(100):
+        nextPopulation = Z.GenerateNewPopulation(actualBackpackPopulation, items, maxLoad, penalty_func)
+        mutadedPopulation = Z.MutatePopulation(nextPopulation)
+        exchangedPopulation = Z.CrossPopulation(mutadedPopulation)
+        actualBackpackPopulation = exchangedPopulation
+        #znalezienie najlepszego plecaka
+        best_in_population = Z.GetBestBackpack(actualBackpackPopulation, items, best_in_population, maxLoad)
+        best_values_per_generation.append(Z.CalculateBackpackValue(best_in_population, items))
+    return best_values_per_generation
 
-items = Z.buildItems(5)
-maxLoad = 10
+# Uruchomienie algorytmu dla różnych funkcji kary
+penalty_funcs = [Z.penalty_log, Z.penalty_linear, Z.penalty_squared]
+penalty_names = ["Logarytmiczny", "Liniowy", "Kwadratowy"]
 
-print("Items: ", items)
+for i in range(len(penalty_funcs)):
+    penalty_func = penalty_funcs[i]
+    penalty_name = penalty_names[i]
+    best_values = run_genetic_algorithm(penalty_func)
+    plt.plot(best_values, label=penalty_name)
 
-actualBackpackPopulation = Z.BuildBackbackPopulation(5, 5)
-print("Population: ", actualBackpackPopulation)
-
-weights = []
-values = []
-penalties = []
-
-for i in actualBackpackPopulation:
-    weights.append(Z.CalculateBackpackWeight(i, items))
-    values.append(Z.CalculateBackpackValue(i, items))
-    penalties.append(Z.CalculateBackpackPenalty(i, items, maxLoad))
-
-roulete = Z.MakeRouleteList(actualBackpackPopulation, items, maxLoad)
-print("Roulete: ", roulete)
-
-rouleteIndex = Z.GetRandomIndexFromRoulete(roulete)
-print("Random index from roulete: ", rouleteIndex)
+plt.xlabel('Generacja')
+plt.ylabel('Najlepsza wartość plecaka')
+plt.legend()
+plt.show()
