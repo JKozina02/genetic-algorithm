@@ -1,15 +1,16 @@
+import random
 import numpy as np
 
-#returns decimal value of binary number
-def BinaryCalc(binaryList: list) -> int:
-    sum = 0
-    binaryList.reverse()
-    for i in range(len(binaryList)):
-        sum += binaryList[i] * 2 ** i
-    return sum
+#returns random object [P, W]
+def createRandomItem() -> list: 
+    return([random.randint(1, 8), random.randint(1, 8)])
 
-def BinaryInRange(binaryList: list, a: int, b: int) -> float:
-    return a + (BinaryCalc(binaryList) / (2 ** len(binaryList) - 1)) * (b - a)
+#returns list of objects
+def buildItems(n:int) -> list: 
+    elements = []
+    for i in range(n):
+        elements.append(createRandomItem())
+    return elements
 
 #returns 0 or 1
 def RandomNum() -> int: 
@@ -22,48 +23,92 @@ def GetRandomBinary(length:int) -> list:
         num.append(RandomNum())
     return num
 
-#returns value of function
-def calcY(x) -> float: 
-    return (np.sin(x) + np.sin((10/3) * x))
-
-#zad5 returns list containing population
-def GetNewPopulation(chromosom:int, length:int) -> list: 
+#returns list of backbacks
+def BuildBackbackPopulation(n:int, length:int) -> list: 
     population = []
-    for i in range(chromosom):
+    for i in range(n):
         population.append(GetRandomBinary(length))
     return population
 
-#zad6 returns list of adaptations of population
-def GetAdaptationOfPopulation(population:list, a:int = 0, b:int = 10) -> list: 
+#returns value of Backpack
+def CalculateBackpackValue(backpack:list, items:list) -> int:
+    sum = 0
+    for i in range(len(backpack)):
+        sum += backpack[i] * items[i][0]
+    return sum
+
+#returns weight of Backpack
+def CalculateBackpackWeight(backpack:list, items:list) -> int:
+    sum = 0
+    for i in range(len(backpack)):
+        sum += backpack[i] * items[i][1]
+    return sum
+
+#returns penalty of Backpack
+def CalculateBackpackPenalty(backpack:list, items:list, maxLoad:int, penalty_func) -> int:
+    weight = CalculateBackpackWeight(backpack, items)
+    v = max([0, weight - maxLoad])
+    return penalty_func(v)
+
+def penalty_log(v):
+    return np.log2(1 + v)
+
+def penalty_linear(v):
+    return v
+
+def penalty_squared(v):
+    return v ** 2
+
+#returns list of adaptations from population
+def MakeRouleteList(population:list, items:list, maxLoad:int, penalty_func) -> list:
     adaptations = []
     for i in population:
-        adaptations.append(BinaryInRange(i, a, b))
-    return adaptations
-
-#Roulete
-def MakeRouleteList(adaptations:list) -> list:
+        score = CalculateBackpackValue(i, items) - CalculateBackpackPenalty(i, items, maxLoad, penalty_func)
+        if score < 0:
+            adaptations.append(0)
+        else:
+            adaptations.append(score)
     wholeAdaptation = sum(adaptations)
     for i in range(len(adaptations)):
         adaptations[i] = adaptations[i] / wholeAdaptation
     return adaptations
 
+#returns random index from roulete
 def GetRandomIndexFromRoulete(roulete: list) -> list:
     ranNum = np.random.rand()
     for i in range(len(roulete)):  
         ranNum -= roulete[i]
         if ranNum <= 0:
             return i
-            
-#zad7
-def ProcessNewPopulation(population:list) -> list:
+
+#returns new population
+def GenerateNewPopulation(population:list, items:list, maxLoad:int, penalty_func) -> list:
     newPopulation = []
-    adaptations = GetAdaptationOfPopulation(population)
-    roulete = MakeRouleteList(adaptations)
+    roulete = MakeRouleteList(population, items, maxLoad, penalty_func)
     for i in range(len(population)):
         newPopulation.append(population[GetRandomIndexFromRoulete(roulete)])
     return newPopulation
-    
-#zad8
+
+#mutate population
+def MutateGene(number: int, propability: float = 0.05) -> int:
+    random = np.random.rand()
+    if random <= propability:
+        return 1-number
+    else:
+        return number
+
+def MutateChromosome(chromosome: list) -> list:
+    mutatedChromosome = []
+    for i in chromosome:
+        mutatedChromosome.append(MutateGene(i))
+    return mutatedChromosome
+
+def MutatePopulation(population: list) -> list:
+    mutatedPopulation = []
+    for i in population:
+        mutatedPopulation.append(MutateChromosome(i))
+    return mutatedPopulation
+
 #Wymiana genów dla 2 chromosomów
 def Exchange(first: list, second: list):
     pointOfCut = round(len(first)/2)
@@ -92,30 +137,49 @@ def CrossPopulation(population: list, propability: float = 1) -> list:
         index += 2
     return crossedPopulation
 
-#zad9
-#losowa mutacja
-def MutateGene(number: int, propability: float = 0.01) -> int:
-    random = np.random.rand()
-    if random <= propability:
-        return 1-number
-    else:
-        return number
+# Funkcja obliczająca plecak o największej wartości
+def GetBestBackpack(population: list, items: list, current_best: list, maxLoad: int) -> list:
+    best_value = CalculateBackpackValue(current_best, items)
+    best_backpack = current_best
+    for backpack in population:
+        if CalculateBackpackWeight(backpack, items) <= maxLoad:
+            value = CalculateBackpackValue(backpack, items)
+            if value > best_value:
+                best_value = value
+                best_backpack = backpack
+    return best_backpack
 
-def MutateChromosome(chromosome: list) -> list:
-    mutatedChromosome = []
-    for i in chromosome:
-        mutatedChromosome.append(MutateGene(i))
-    return mutatedChromosome
+# Funkcja naprawiająca plecaki w kolejności losowej
+def RepairBackpackRandom(population: list, items: list, maxLoad: int) -> list:
+    newPopulation = []
+    propability = 0.05
+    for backpack in population:
+        if CalculateBackpackWeight(backpack, items) > maxLoad:
+            random_value = np.random.rand()
+            if random_value <= propability:
+                while CalculateBackpackWeight(backpack, items) > maxLoad:
+                    index = np.random.randint(0, len(backpack))
+                    backpack[index] = 0
+            newPopulation.append(backpack)
+        else:
+            newPopulation.append(backpack)
+    return newPopulation
 
-def MutatePopulation(population: list) -> list:
-    mutatedPopulation = []
-    for i in population:
-        mutatedPopulation.append(MutateChromosome(i))
-    return mutatedPopulation
+# Funkcja naprawiająca plecaki w kolejności od najmniejszego stosunku wartości do wagi z prawdopodobieństwem 5%
+def RepairBackpackRatio(population: list, items: list, maxLoad: int) -> list:
+    def value_to_weight_ratio(item):
+        return item[0] / item[1]
 
-# Funkcja obliczająca najlepsze rozwiązanie
-def GetBestSolution(population: list, a: int = 0, b: int = 10) -> float:
-    adaptations = GetAdaptationOfPopulation(population, a, b)
-    best_index = np.argmin([calcY(adaptation) for adaptation in adaptations])
-    return adaptations[best_index]
-
+    newPopulation = []
+    propability = 0.05
+    for backpack in population:
+        if CalculateBackpackWeight(backpack, items) > maxLoad:
+            random_value = np.random.rand()
+            if random_value <= propability:
+                sortedIndexes = sorted(range(len(items)), key=lambda i: value_to_weight_ratio(items[i]))
+                for index in sortedIndexes:
+                    if CalculateBackpackWeight(backpack, items) <= maxLoad:
+                        break
+                    backpack[index] = 0
+        newPopulation.append(backpack)
+    return newPopulation

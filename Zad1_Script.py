@@ -1,40 +1,45 @@
-import Zad1 as S
-import numpy as np
+import Zad1 as Z
 import matplotlib.pyplot as plt
 
-# Parameters
-n = 100
-chromosome_length = 8
-population_size = 6
+items = Z.buildItems(8)
+actualBackpackPopulation = Z.BuildBackbackPopulation(6, 8)
 
-# Generate initial population
-population = S.GetNewPopulation(population_size, chromosome_length)
-actualPopulation = population
-global_best = S.GetBestSolution(actualPopulation)
+# Uruchomienie algorytmu genetycznego
+def run_genetic_algorithm(penalty_func, items=items, population=actualBackpackPopulation):
 
-# Evolve the population
-for i in range(n):
-    nextPopulation = S.ProcessNewPopulation(actualPopulation)
-    crossedPopulation = S.CrossPopulation(nextPopulation)
-    mutatedPopulation = S.MutatePopulation(crossedPopulation)
-    actualPopulation = mutatedPopulation
+    #definicja zmiennych
+    best_in_population = [0, 0, 0, 0, 0]
+    maxLoad = 25
 
-    best_in_population = S.GetBestSolution(actualPopulation)
-    
-    if S.calcY(best_in_population) < S.calcY(global_best):
-        global_best = best_in_population
+    #generacja populacji
+    actualBackpackPopulation = population
+    best_in_population = Z.GetBestBackpack(actualBackpackPopulation, items, best_in_population, maxLoad)
+    best_values_per_generation = []
 
-best_y = S.calcY(global_best)
+    #iteracja po generacjach
+    for i in range(100):
+        nextPopulation = Z.GenerateNewPopulation(actualBackpackPopulation, items, maxLoad, penalty_func)
+        mutadedPopulation = Z.MutatePopulation(nextPopulation)
+        exchangedPopulation = Z.CrossPopulation(mutadedPopulation)
+        actualBackpackPopulation = exchangedPopulation
+        
+        #znalezienie najlepszego plecaka
+        best_in_population = Z.GetBestBackpack(actualBackpackPopulation, items, best_in_population, maxLoad)
+        best_values_per_generation.append(Z.CalculateBackpackValue(best_in_population, items))
+    return best_values_per_generation
 
-x = np.linspace(0, 10, 100)
-y = np.sin(x) + np.sin((10 / 3) * x)
+# Uruchomienie algorytmu dla różnych funkcji kary
+penalty_funcs = [Z.penalty_log, Z.penalty_linear, Z.penalty_squared]
+penalty_names = ["Logarytmiczny", "Liniowy", "Kwadratowy"]
 
-plt.plot(x, y, label="Function y = sin(x) + sin(10/3 * x)", color='blue')
-plt.scatter(global_best, best_y, color='red', label=f"Best solution: x={global_best:.2f}, y={best_y:.2f}")
+for i in range(len(penalty_funcs)):
+    penalty_func = penalty_funcs[i]
+    penalty_name = penalty_names[i]
+    best_values = run_genetic_algorithm(penalty_func)
+    plt.plot(best_values, label=penalty_name)
+
+#   Rysowanie wykresu
+plt.xlabel('Generacja')
+plt.ylabel('Najlepsza wartość plecaka')
 plt.legend()
-plt.grid()
-plt.xlabel("x")
-plt.ylabel("y")
 plt.show()
-
-print("Final population:", actualPopulation)
